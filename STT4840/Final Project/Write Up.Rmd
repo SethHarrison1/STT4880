@@ -1,0 +1,210 @@
+---
+title: "Spotify Music Consumption: A Time Series Analysis"
+author: "Seth Harrison"
+date: "12/3/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(readr)
+library(knitr)
+library(DT)
+library(rjson)
+library(xlsx)
+library(forecast)
+sheet1 <- read.csv("./sheet1.csv")
+sheet2 <- read.csv("./sheet2.csv")
+sheet3 <- read.csv("./sheet3.csv")
+sheet4 <- read.csv("./sheet4.csv")
+knitr::opts_chunk$set(echo = TRUE)
+halfSheet1 <- full_join(sheet1, sheet2)
+halfSheet2 <- full_join(sheet3, sheet4)
+savedSongs <- full_join(halfSheet1, halfSheet2)
+sheetJ0 <- read.csv("./StreamingHistory0.csv")
+sheetJ1 <- read.csv("./StreamingHistory1.csv")
+sheetJ2 <- read.csv("./StreamingHistory2.csv")
+sheetJ3 <- read.csv("./StreamingHistory3.csv")
+sheetJ4 <- read.csv("./StreamingHistory4.csv")
+sheetJ5 <- read.csv("./StreamingHistory5.csv")
+sheetJ6 <- read.csv("./StreamingHistory6.csv")
+halfSheetJ1 <- full_join(sheetJ0, sheetJ1)
+halfSheetJ2 <- full_join(sheetJ2, sheetJ3)
+halfSheetJ3 <- full_join(sheetJ4, sheetJ5)
+thirdSheetJ <- full_join(halfSheetJ1, halfSheetJ2)
+secondSheetJ <- full_join(thirdSheetJ, halfSheetJ3)
+streamingHistory <- full_join(secondSheetJ, sheetJ6)
+streamingHistory <- streamingHistory %>% separate(col = "endTime", into = c("Date", "Time"), sep = " ")
+songsSavedFiltered <- savedSongs %>% separate(col = "Date", into = c("Date", "Time"), sep = " at ") %>% group_by(Date) %>% mutate(savedsongscount = n())
+songsSavedCount <- songsSavedFiltered %>% select(-Artist, -Album, -Song, -Time)
+songsSavedCount$Date <- as.Date(songsSavedCount$Date, format = c("%B %d, %Y"))
+songsSavedCount <- data.frame(songsSavedCount)
+songsSavedCount <- songsSavedCount[!duplicated(songsSavedCount), ]
+songsSavedCount <- songsSavedCount[-c(1:233),]
+streamingHistory$Date <- as.Date(streamingHistory$Date)
+streamingHistoryFiltered <- streamingHistory %>% filter(msPlayed > 1000) %>% group_by(Date) %>% mutate(songscount = n())
+streamingHistoryCount <- streamingHistoryFiltered %>% select(-artistName, -trackName, -Time, - msPlayed)
+streamingHistoryCount <- data.frame(streamingHistoryCount)
+streamingHistoryCount <- streamingHistoryCount[!duplicated(streamingHistoryCount), ]
+streamingHistoryCount <- streamingHistoryCount[-1,]
+streamingHistoryFiltered2 <- streamingHistory %>% filter(msPlayed > 1000) %>% group_by(Date) %>% mutate(secondcount = sum(msPlayed))
+streamingHistorySCount <- streamingHistoryFiltered2 %>% select(-artistName, -trackName, -Time, -msPlayed)
+streamingHistorySCount <- data.frame(streamingHistorySCount)
+streamingHistorySCount <- streamingHistorySCount[!duplicated(streamingHistorySCount), ]
+streamingHistorySCount$secondcount <- streamingHistorySCount$secondcount / 1000
+streamingHistorySCount <- streamingHistorySCount[-1,]
+streamingHistoryBothCount <- streamingHistoryCount %>% full_join(streamingHistorySCount, by = "Date")
+streamingHistoryALLCount <- streamingHistoryBothCount %>% full_join(songsSavedCount, by = "Date")
+streamingHistoryALLCount$savedsongscount[is.na(streamingHistoryALLCount$savedsongscount)] <- 0
+streamingHistoryALLCount$savedsongscount[315:324] <- c(23,4,15,7,5,0,2,6,19,5)
+streamingHistoryALLCount$savedsongscount[333:367] <- c(12,0,13,5,6,21,0,3,0,17,5,9,5,                                                     3,0,0,9,8,9,17,0,0,1,12,31,22,9,0,1,4,6,0,7,17,0)
+streamingHistSongsDiff <- ts(diff(streamingHistoryALLCount$songscount))
+streamingHistSecondsDiff <- ts(diff(streamingHistoryALLCount$secondcount))
+streamingHistSavedDiff <- ts(diff(streamingHistoryALLCount$savedsongscount))
+modelARMA21Saved <- arima(streamingHistSavedDiff,c(2,0,1))
+modelARMA21Songs <- arima(streamingHistSongsDiff,c(2,0,1))
+modelARMA21seconds <- arima(streamingHistSecondsDiff,c(2,0,1))
+```
+
+----------------------------------
+
+## Background{-}
+
+   My friend, MarcAndrew, has particularly high music consumption habits and I believed that it would be interesting to collect data on these habit and perform an analysis on them, as well as attempt to forcast future usage. All data was collected automatically and stored in multiple excel files, which is then converted to proper time series data for use in analysis. This report will be observing the time series data for three variables: Time Listened(seconds), Songs Listened To, and Songs Saved. Using the time series data for these three variables we will attempt to select the optimal smoothing model and apply an ARIMA model to the differenced data in an attempt to accurately forecast future values. Because this is a study focused on one individuals music consumption habits, it will be hard to apply the findings to any other areas, and the data may be prone to be altered by variables outside of those recorded.
+
+---------------------------
+
+## The Data{-}
+
+Because the data was automatically recorded, the original data looks different to those which we will use for the analysis. Before performing any analysis, all values of "Time Listened" with less than 1 second of listening time will be removed, as they would only serve to skew the data values for "Songs Listened To". When filtering these values out, some of the "Songs Saved" values are removed, and I have opted to compensate for those values by manually inserting the removed values into the data. The data for the time of day that songs are listened to were not properly recorded for a large number of "Songs Listened To" values and will therefore I will not include a time of day component in my analysis, even though it would likely exhibit a strong seasonality component. Displayed below is a datatable of the all three time series variables.
+
+```{r}
+datatable(streamingHistoryALLCount)
+```
+
+
+
+
+---------------------------
+
+## Analysis{-}
+
+Displayed below are the time series plots for the three variables, with different smoothing methods fit to them. These graphs serve as a good indicator of whether or not there may be seasonality, and what types of seasonality would be good to look for. The green line is a loess smoothing curve, the red line is a kernel smoothing curve and the purple line is a smoothing spline. Following each plot is its respective ACF plot, which we will use to select a transformation to create a stationary time series, with which we can fit an ARIMA model. 
+
+```{r, echo=F}
+streamingHistTS <- ts(streamingHistoryCount$songscount)
+plot.ts(streamingHistTS, xlab = "Day", ylab = "Number of Songs Played", main = "Time Series Plot of Songs Played Each Day")
+lines(ksmooth(time(streamingHistTS),streamingHistTS,"normal",bandwidth=5),col="red", lwd = 2)
+lines(lowess(streamingHistTS,f=.1),col="green", lwd = 2)
+lines(smooth.spline(time(streamingHistTS),streamingHistTS,spar=.5),col="purple", lwd = 2)
+acf(streamingHistTS)
+streamingHistSecondsTS <- ts(streamingHistorySCount$secondcount)
+plot.ts(streamingHistSecondsTS, xlab = "Day", ylab = "Seconds Listened", main = "Time Series Plot of Time Listened Each Day")
+lines(ksmooth(time(streamingHistSecondsTS),streamingHistSecondsTS,"normal",bandwidth=5),col="red", lwd = 2)
+lines(lowess(streamingHistSecondsTS,f=.1),col="green", lwd = 2)
+lines(smooth.spline(time(streamingHistSecondsTS),streamingHistSecondsTS,spar=.5),col="purple", lwd = 2)
+acf(streamingHistSecondsTS)
+streamingHistsavedTS <- ts(streamingHistoryALLCount$savedsongscount)
+plot.ts(streamingHistsavedTS, xlab = "Day", ylab = "Songs Saved", main = "Time Series Plot of Songs Saved Each Day")
+lines(ksmooth(time(streamingHistsavedTS),streamingHistsavedTS,"normal",bandwidth=5),col="red", lwd = 2)
+lines(lowess(streamingHistsavedTS,f=.1),col="green", lwd = 2)
+lines(smooth.spline(time(streamingHistsavedTS),streamingHistsavedTS,spar=.5),col="purple", lwd = 2)
+acf(streamingHistsavedTS)
+```
+
+Because of the way the data is distributed and the ACF plots, I have chosen to use a lag 1 differencing in order to transform the three time series into stationary time series. The lag 1 differenced time series are plotted below.
+
+```{r, echo=FALSE}
+streamingHistSongsDiff <- ts(diff(streamingHistoryALLCount$songscount))
+plot.ts(diff(streamingHistoryALLCount$songscount), xlab = "Day", ylab = "Difference of Songs Listened to (Lag 1)", main = "Differenced Plot of Songs Listened To")
+
+streamingHistSecondsDiff <- ts(diff(streamingHistoryALLCount$secondcount))
+plot.ts(diff(streamingHistoryALLCount$secondcount), xlab = "Day", ylab = "Difference of Seconds Listened to (Lag 1)")
+
+streamingHistSavedDiff <- ts(diff(streamingHistoryALLCount$savedsongscount))
+plot.ts(diff(streamingHistoryALLCount$savedsongscount), xlab = "Day", ylab = "Difference of Songs Saved Listened to (Lag 1)")
+```
+
+Because all of these time series are approximately stationary we are able to fit ARIMA models to them for forecasting purposes. Before we do this, we will test for seasonality among the three variables, and include this component in our models. I fit dummy models to the data to see if the day of the week was affecting the data, the first dummy model was based on what day of the week it was, and the second dummy model was based on whether it was a weekday or weekend. The dummy model code is as follows:
+
+```{r, eval=FALSE}
+t <- 1:366
+D1<-rep(c(1,0,0,0,0,0,0),52);D1[365]<-1;D1[366]<-0
+D2<-rep(c(0,1,0,0,0,0,0),52);D2[365]<-0;D2[366]<-1
+D3<-rep(c(0,0,1,0,0,0,0),52);D3[365]<-0;D3[366]<-0
+D4<-rep(c(0,0,0,1,0,0,0),52);D4[365]<-0;D4[366]<-0
+D5<-rep(c(0,0,0,0,1,0,0),52);D5[365]<-0;D5[366]<-0
+D6<-rep(c(0,0,0,0,0,1,0),52);D6[365]<-0;D6[366]<-0
+modSeconds1 <- lm(diff(streamingHistoryALLCount$secondcount) ~ t + D1 + D2 + D3 + D4 + D5 + D6)
+summary(modSeconds1)
+modSaved1 <- lm(diff(streamingHistoryALLCount$savedsongscount) ~ t + D1 + D2 + D3 + D4 + D5 + D6)
+summary(modSaved1)
+modSongs1 <- lm(diff(streamingHistoryALLCount$songscount) ~ t + D1 + D2 + D3 + D4 + D5 + D6)
+summary(modSongs1)
+
+WD<-rep(c(1,1,0,0,1,1,1),52);WD[365]<-1;WD[366]<-1
+WE<-rep(c(0,0,1,1,0,0,0),52);WE[365]<-0;WE[366]<-0
+modSeconds2 <- lm(diff(streamingHistoryALLCount$secondcount) ~ t + WD + WE)
+summary(modSeconds2)
+modSaved2 <- lm(diff(streamingHistoryALLCount$savedsongscount) ~ t + WD + WE)
+summary(modSaved2)
+modSongs2 <- lm(diff(streamingHistoryALLCount$songscount) ~ t + WD + WE)
+summary(modSongs2)
+```
+
+After looking at these models, I came to the conclusion that there was little to no seasonality within the days and opted to not include these models in my final conclusion, though the seasonality was tested for. Now i will fit a smoothing spline model to each of the three variables in order to have a model to predict the future values for.
+
+```{r, echo = F}
+t2 <- 1:367
+modSeconds3 <- smooth.spline(streamingHistoryALLCount$secondcount ~ t2)
+modSongs3 <- smooth.spline(streamingHistoryALLCount$songscount ~ t2)
+modSaved3 <- smooth.spline(streamingHistoryALLCount$savedsongscount ~ t2)
+```
+
+These models have a final point, from which we will use an ARIMA model to predict future values. These data points are as follows:
+
+```{r}
+modSeconds3$y[367]
+modSaved3$y[367]
+modSongs3$y[367]
+```
+
+Then I tested for the different types of ARIMA models that i felt would be appropriate and found that ultimates an arima(2,0,1) model has the lowest AIC and would therefore be the best fit for all three models. I also conducted a Ljung-Box Test for the ARIMA models to confirm that their residuals are approximately white noise. Finally I combined the predictions from the ARIMA models with the predicted values from my smoothing spline models to forecast the following five values as a test to see if they follow the same general trend as the data.
+
+```{r, eval=FALSE}
+modelARMA21Saved <- arima(streamingHistSavedDiff,c(2,0,1))
+modelARMA21Songs <- arima(streamingHistSongsDiff,c(2,0,1))
+modelARMA21seconds <- arima(streamingHistSecondsDiff,c(2,0,1))
+```
+
+
+```{r}
+predictedseconds <- predict(modelARMA21seconds, n.ahead = 5)[1]
+predictedSaved <- predict(modelARMA21Saved, n.ahead = 5)[1]
+predictedSongs <- predict(modelARMA21Songs, n.ahead = 5)[1]
+
+pseconds5 <- as.numeric(predictedseconds$pred + modSeconds3$y[367])
+psaved5 <- as.numeric(predictedSaved$pred + modSaved3$y[367])
+psongs5 <- as.numeric(predictedSongs$pred + modSongs3$y[367])
+
+pseconds5
+psongs5
+psaved5
+```
+
+These values appear to be appropriate to the range of the data sets from which they are derived. The following the plots are the time series plots including the newly predicted values from the ARIMA models.
+
+```{r, echo=FALSE}
+predictedSongs5 <- append(streamingHistoryALLCount$songscount, psongs5)
+plot.ts(predictedSongs5)
+predictedSaved5 <- append(streamingHistoryALLCount$savedsongscount, psaved5)
+plot.ts(predictedSaved5)
+predictedSeconds5 <- append(streamingHistoryALLCount$secondcount, pseconds5)
+plot.ts(predictedSeconds5)
+```
+
+## Conclusion{-}
+
+I was able to fit a smoothing spline and ARIMA model to the data even though it was seemingly random and likely affected by factors outside of my control. There may have been seasonality within the indiviudal days, for example morning listening trends vs. evening listening trends, though because of the issue with the time of day component in the collection process I was not able to test for seasonality within the individual hours. I also feel that there may be more adequate ways to forecast the data across greater lengths of time and using models with variable overlap, such as using songs saved in a day to forecast the amount of time spent listening in a day. I believe that the model is adequately fit because the data is seemingly so random and even lacking an obvious seasonal component and serves as a good predictor for future values. 

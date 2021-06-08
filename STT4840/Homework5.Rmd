@@ -1,0 +1,83 @@
+---
+title: "HW5"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(astsa)
+data(gas)
+data(oil)
+plot(oil, type = "l", ylim = c(18, 350))
+lines(gas, col = "green")
+```
+
+```{r}
+plot(diff(log(oil)))
+lines(diff(log(gas)), col = "green")
+acf(diff(log(oil)))
+acf(diff(log(gas)))
+LagReg(diff(log(oil)),diff(log(gas)))
+```
+
+```{r}
+plot(gas, type = "p")
+lines(ksmooth(time(gas), gas, "normal", bandwidth=1), lwd=2, col=4)
+plot(oil, type = "p")
+lines(ksmooth(time(oil), oil, "normal", bandwidth=1), lwd=2, col=4)
+```
+
+```{r}
+poil = diff(log(oil))
+pgas = diff(log(gas))
+indi = ifelse(poil < 0, 0, 1)
+mess = ts.intersect(pgas, poil, poilL = stats::lag(poil,-1), indi)
+summary(fit <- lm(pgas~ poil + poilL + indi, data=mess))
+rsdls <- fit$residuals
+plot(rsdls, type = "l")
+acf(rsdls)
+```
+
+```{r}
+plot(globtemp, type = "p")
+lines(lowess(globtemp, f=.05), lwd=2, col=4) 
+
+plot(globtemp, type = "p")
+lines(smooth.spline(time(globtemp), globtemp, spar=.5))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+IowaUsage <- read.csv("./IowaUsage.csv")
+mod1 <- IowaUsage$Usage %>% arima(order = c(0, 0, 1))
+plot(mod1$residuals)
+mean(mod1$residuals)
+acf(IowaUsage$Usage)
+```
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,283 @@
+---
+title: "Spotify Data Analysis"
+author: "Seth Harrison"
+date: "11/26/2019"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(readr)
+library(knitr)
+library(DT)
+library(rjson)
+library(xlsx)
+library(forecast)
+```
+
+```{r}
+sheet1 <- read.csv("./sheet1.csv")
+sheet2 <- read.csv("./sheet2.csv")
+sheet3 <- read.csv("./sheet3.csv")
+sheet4 <- read.csv("./sheet4.csv")
+```
+
+```{r}
+halfSheet1 <- full_join(sheet1, sheet2)
+halfSheet2 <- full_join(sheet3, sheet4)
+savedSongs <- full_join(halfSheet1, halfSheet2)
+```
+
+```{r}
+sheetJ0 <- read.csv("./StreamingHistory0.csv")
+sheetJ1 <- read.csv("./StreamingHistory1.csv")
+sheetJ2 <- read.csv("./StreamingHistory2.csv")
+sheetJ3 <- read.csv("./StreamingHistory3.csv")
+sheetJ4 <- read.csv("./StreamingHistory4.csv")
+sheetJ5 <- read.csv("./StreamingHistory5.csv")
+sheetJ6 <- read.csv("./StreamingHistory6.csv")
+```
+
+```{r}
+halfSheetJ1 <- full_join(sheetJ0, sheetJ1)
+halfSheetJ2 <- full_join(sheetJ2, sheetJ3)
+halfSheetJ3 <- full_join(sheetJ4, sheetJ5)
+thirdSheetJ <- full_join(halfSheetJ1, halfSheetJ2)
+secondSheetJ <- full_join(thirdSheetJ, halfSheetJ3)
+streamingHistory <- full_join(secondSheetJ, sheetJ6)
+```
+
+```{r}
+streamingHistory <- streamingHistory %>% separate(col = "endTime", into = c("Date", "Time"), sep = " ")
+```
+
+Creating Saved Songs TS Data
+```{r}
+songsSavedFiltered <- savedSongs %>% separate(col = "Date", into = c("Date", "Time"), sep = " at ") %>% group_by(Date) %>% mutate(savedsongscount = n())
+songsSavedCount <- songsSavedFiltered %>% select(-Artist, -Album, -Song, -Time)
+songsSavedCount$Date <- as.Date(songsSavedCount$Date, format = c("%B %d, %Y"))
+songsSavedCount <- data.frame(songsSavedCount)
+songsSavedCount <- songsSavedCount[!duplicated(songsSavedCount), ]
+songsSavedCount <- songsSavedCount[-c(1:233),]
+```
+
+
+Creating STH count
+```{r}
+streamingHistory$Date <- as.Date(streamingHistory$Date)
+streamingHistoryFiltered <- streamingHistory %>% filter(msPlayed > 1000) %>% group_by(Date) %>% mutate(songscount = n())
+streamingHistoryCount <- streamingHistoryFiltered %>% select(-artistName, -trackName, -Time, - msPlayed)
+streamingHistoryCount <- data.frame(streamingHistoryCount)
+streamingHistoryCount <- streamingHistoryCount[!duplicated(streamingHistoryCount), ]
+streamingHistoryCount <- streamingHistoryCount[-1,]
+```
+
+Creating SPlayed Count
+```{r}
+streamingHistoryFiltered2 <- streamingHistory %>% filter(msPlayed > 1000) %>% group_by(Date) %>% mutate(secondcount = sum(msPlayed))
+streamingHistorySCount <- streamingHistoryFiltered2 %>% select(-artistName, -trackName, -Time, -msPlayed)
+streamingHistorySCount <- data.frame(streamingHistorySCount)
+streamingHistorySCount <- streamingHistorySCount[!duplicated(streamingHistorySCount), ]
+streamingHistorySCount$secondcount <- streamingHistorySCount$secondcount / 1000
+streamingHistorySCount <- streamingHistorySCount[-1,]
+```
+
+Combining all
+```{r}
+streamingHistoryBothCount <- streamingHistoryCount %>% full_join(streamingHistorySCount, by = "Date")
+streamingHistoryALLCount <- streamingHistoryBothCount %>% full_join(songsSavedCount, by = "Date")
+streamingHistoryALLCount$savedsongscount[is.na(streamingHistoryALLCount$savedsongscount)] <- 0
+```
+
+saved songs fix
+```{r}
+streamingHistoryALLCount$savedsongscount[315:324] <- c(23,4,15,7,5,0,2,6,19,5)
+streamingHistoryALLCount$savedsongscount[333:367] <- c(12,0,13,5,6,21,0,3,0,17,5,9,5,                                                     3,0,0,9,8,9,17,0,0,1,12,31,22,9,0,1,4,6,0,7,17,0)
+```
+
+
+```{r}
+library(DT)
+datatable(streamingHistoryALLCount)
+```
+
+
+
+Times Series Plots of the last 368 days of Spotify Listening Data
+```{r, fig.width=16, fig.height=8}
+streamingHistTS <- ts(streamingHistoryCount$songscount)
+plot.ts(streamingHistTS, xlab = "Day", ylab = "Number of Songs Played", main = "Time Series Plot of Songs Played Each Day")
+lines(ksmooth(time(streamingHistTS),streamingHistTS,"normal",bandwidth=5),col="red", lwd = 2)
+lines(lowess(streamingHistTS,f=.1),col="green", lwd = 2)
+lines(smooth.spline(time(streamingHistTS),streamingHistTS,spar=.5),col="purple", lwd = 2)
+acf(streamingHistTS)
+
+streamingHistSecondsTS <- ts(streamingHistorySCount$secondcount)
+plot.ts(streamingHistSecondsTS, xlab = "Day", ylab = "Seconds Listened", main = "Time Series Plot of Time Listened Each Day")
+lines(ksmooth(time(streamingHistSecondsTS),streamingHistSecondsTS,"normal",bandwidth=5),col="red", lwd = 2)
+lines(lowess(streamingHistSecondsTS,f=.1),col="green", lwd = 2)
+lines(smooth.spline(time(streamingHistSecondsTS),streamingHistSecondsTS,spar=.5),col="purple", lwd = 2)
+acf(streamingHistSecondsTS)
+
+streamingHistsavedTS <- ts(streamingHistoryALLCount$savedsongscount)
+plot.ts(streamingHistsavedTS, xlab = "Day", ylab = "Songs Saved", main = "Time Series Plot of Songs Saved Each Day")
+lines(ksmooth(time(streamingHistsavedTS),streamingHistsavedTS,"normal",bandwidth=5),col="red", lwd = 2)
+lines(lowess(streamingHistsavedTS,f=.1),col="green", lwd = 2)
+lines(smooth.spline(time(streamingHistsavedTS),streamingHistsavedTS,spar=.5),col="purple", lwd = 2)
+acf(streamingHistsavedTS)
+
+```
+
+Transformations on Time Series Plots of last 368 days of Spotify Listening Data
+```{r}
+streamingHistSongsDiff <- ts(diff(streamingHistoryALLCount$songscount))
+plot.ts(diff(streamingHistoryALLCount$songscount), xlab = "Day", ylab = "Difference of Songs Listened to (Lag 1)", main = "Differenced Plot of Songs Listened To")
+acf(streamingHistSongsDiff)
+
+streamingHistSecondsDiff <- ts(diff(streamingHistoryALLCount$secondcount))
+plot.ts(diff(streamingHistoryALLCount$secondcount), xlab = "Day", ylab = "Difference of Seconds Listened to (Lag 1)")
+acf(streamingHistSecondsDiff)
+
+streamingHistSavedDiff <- ts(diff(streamingHistoryALLCount$savedsongscount))
+plot.ts(diff(streamingHistoryALLCount$savedsongscount), xlab = "Day", ylab = "Difference of Songs Saved Listened to (Lag 1)")
+acf(streamingHistSavedDiff)
+```
+
+Building Models
+
+```{r}
+t <- 1:366
+D1<-rep(c(1,0,0,0,0,0,0),52)
+D1[365]<-1
+D1[366]<-0
+D2<-rep(c(0,1,0,0,0,0,0),52)
+D2[365]<-0
+D2[366]<-1
+D3<-rep(c(0,0,1,0,0,0,0),52)
+D3[365]<-0
+D3[366]<-0
+D4<-rep(c(0,0,0,1,0,0,0),52)
+D4[365]<-0
+D4[366]<-0
+D5<-rep(c(0,0,0,0,1,0,0),52)
+D5[365]<-0
+D5[366]<-0
+D6<-rep(c(0,0,0,0,0,1,0),52)
+D6[365]<-0
+D6[366]<-0
+modSeconds1 <- lm(diff(streamingHistoryALLCount$secondcount) ~ t + D1 + D2 + D3 + D4 + D5 + D6)
+summary(modSeconds1)
+modSaved1 <- lm(diff(streamingHistoryALLCount$savedsongscount) ~ t + D1 + D2 + D3 + D4 + D5 + D6)
+summary(modSaved1)
+modSongs1 <- lm(diff(streamingHistoryALLCount$songscount) ~ t + D1 + D2 + D3 + D4 + D5 + D6)
+summary(modSongs1)
+
+WD<-rep(c(1,1,0,0,1,1,1),52)
+WD[365]<-1
+WD[366]<-1
+WE<-rep(c(0,0,1,1,0,0,0),52)
+WE[365]<-0
+WE[366]<-0
+
+modSeconds2 <- lm(diff(streamingHistoryALLCount$secondcount) ~ t + WD + WE)
+summary(modSeconds2)
+modSaved2 <- lm(diff(streamingHistoryALLCount$savedsongscount) ~ t + WD + WE)
+summary(modSaved2)
+modSongs2 <- lm(diff(streamingHistoryALLCount$songscount) ~ t + WD + WE)
+summary(modSongs2)
+
+t2 <- 1:367
+modSeconds3 <- smooth.spline(streamingHistoryALLCount$secondcount ~ t2)
+modSeconds3$y[367]
+modSaved3 <- smooth.spline(streamingHistoryALLCount$savedsongscount ~ t2)
+modSaved3$y[367]
+modSongs3 <- smooth.spline(streamingHistoryALLCount$songscount ~ t2)
+modSongs3$y[367]
+
+
+```
+
+Fit ARIMA models
+```{r}
+modelAR1seconds <- arima(streamingHistSecondsDiff,c(1,0,0))
+modelMA1seconds <- arima(streamingHistSecondsDiff,c(0,0,1))
+modelAR2seconds <- arima(streamingHistSecondsDiff,c(2,0,0))
+modelMA2seconds <- arima(streamingHistSecondsDiff,c(0,0,2))
+modelARMA11seconds <- arima(streamingHistSecondsDiff,c(1,0,1))
+modelARMA22seconds <- arima(streamingHistSecondsDiff,c(2,0,2))
+modelARMA12seconds <- arima(streamingHistSecondsDiff,c(1,0,2))
+modelARMA21seconds <- arima(streamingHistSecondsDiff,c(2,0,1))
+
+#modelAR1seconds
+#modelAR2seconds
+#modelMA1seconds
+#modelMA2seconds
+#modelARMA11seconds
+#modelARMA22seconds
+#modelARMA12seconds
+#modelARMA21seconds
+
+
+#modelAR1Songs <- arima(streamingHistSongsDiff,c(1,0,0))
+#modelMA1Songs <- arima(streamingHistSongsDiff,c(0,0,1))
+#modelAR2Songs <- arima(streamingHistSongsDiff,c(2,0,0))
+#modelMA2Songs <- arima(streamingHistSongsDiff,c(0,0,2))
+#modelARMA11Songs <- arima(streamingHistSongsDiff,c(1,0,1))
+#modelARMA22Songs <- arima(streamingHistSongsDiff,c(2,0,2))
+#modelARMA12Songs <- arima(streamingHistSongsDiff,c(1,0,2))
+modelARMA21Songs <- arima(streamingHistSongsDiff,c(2,0,1))
+
+
+modelARMA21Songs
+
+modelAR1Saved <- arima(streamingHistSavedDiff,c(1,0,0))
+modelMA1Saved <- arima(streamingHistSavedDiff,c(0,0,1))
+modelAR2Saved <- arima(streamingHistSavedDiff,c(2,0,0))
+modelMA2Saved <- arima(streamingHistSavedDiff,c(0,0,2))
+modelARMA11Saved <- arima(streamingHistSavedDiff,c(1,0,1))
+modelARMA22Saved <- arima(streamingHistSavedDiff,c(2,0,2))
+modelARMA12Saved <- arima(streamingHistSavedDiff,c(1,0,2))
+modelARMA21Saved <- arima(streamingHistSavedDiff,c(2,0,1))
+
+#modelAR1Saved
+#modelAR2Saved
+#modelMA1Saved
+#modelMA2Saved
+#modelARMA11Saved
+#modelARMA22Saved
+#modelARMA12Saved
+#modelARMA21Saved
+Box.test(modelARMA21Saved$residuals, type = "Ljung-Box", lag = 10)
+Box.test(modelARMA21seconds$residuals, type = "Ljung-Box", lag = 10)
+Box.test(modelARMA21Songs$residuals, type = "Ljung-Box", lag = 10)
+```
+
+```{r}
+predictedseconds <- predict(modelARMA21seconds, n.ahead = 5)[1]
+predictedSaved <- predict(modelARMA21Saved, n.ahead = 5)[1]
+predictedSongs <- predict(modelARMA21Songs, n.ahead = 5)[1]
+
+pseconds5 <- as.numeric(predictedseconds$pred + modSeconds3$y[367])
+psaved5 <- as.numeric(predictedSaved$pred + modSaved3$y[367])
+psongs5 <- as.numeric(predictedSongs$pred + modSongs3$y[367])
+```
+
+
+
+```{r}
+predictedseconds <- predict(modelARMA21seconds, n.ahead = 5)[1]
+predictedSaved <- predict(modelARMA21Saved, n.ahead = 5)[1]
+predictedSongs <- predict(modelARMA21Songs, n.ahead = 5)[1]
+
+pseconds5 <- as.numeric(predictedseconds$pred + modSeconds3$y[367])
+psaved5 <- as.numeric(predictedSaved$pred + modSaved3$y[367])
+psongs5 <- as.numeric(predictedSongs$pred + modSongs3$y[367])
+
+pseconds5
+psongs5
+psaved5
+```
+
+

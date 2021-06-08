@@ -1,0 +1,91 @@
+---
+title: "Homework 1"
+author: "Seth Harrison"
+output:
+  html_document:
+    df_print: paged
+---
+A)Install the astsa package in R Studio.  Plot the jj data described in Example 1.1 then answer the following questions:
+
+```{r}
+library(astsa) # SEE THE FOOTNOTE
+plotEQS <- plot(jj, type="l", ylab="Quarterly Earnings per Share")
+plotEQS
+```
+1. Is the time series stationary? Explain.
+
+```{r}
+var(jj)
+```
+
+
+The time series is not stationary because the variance increases as time passes and the collection of values is not identical to the time shifted values.
+
+2. The variance is clearly not constant, it generally increases with time.  Do a log transformation of the data.  Does the log-transformed data have a more constant variance?
+
+```{r}
+plotLogEQS <- plot(log(jj), type="l", ylab="Quarterly Earnings per Share(log transformed)")
+plotLogEQS
+```
+```{r}
+var(log(jj))
+```
+
+It appears that the variance remains somewhat constant when the data is log transformed.
+
+3. Do a lag 1 differencing of the log-transformed data.  Is this data more stationary than the original data?  
+
+```{r}
+plotDiffLogEQS <- plot(diff(log(jj), lag = 1), type="l", ylab="Differencing of log Transformed QES")
+plotDiffLogEQS
+```
+```{r}
+var(diff(log(jj), lag = 1))
+```
+The variance is .0442, which is significantly lower than the original data.
+
+4. Fit a simple linear regression model to the original time series data.  Obtain and interpret the slope of the regression line in context of the data.
+
+```{r}
+lm(jj ~ c(1:length(jj)))
+```
+With a slope of 0.163, we would expect an increase of of 0.163 in earnings each quarter, assuming the linear regression model was a good interpretation for the data.
+
+5. Obtain the residuals after fitting the regression model in #4.  Plot the residuals.  Do the residuals look stationary?
+
+```{r}
+lineMod <- lm(jj ~ c(1:length(jj)))
+plot(resid(lineMod), type = "l", ylab = "Residual")
+var(resid(lineMod))
+```
+Based on the increasing variance of the residuals, I would say they are not stable.
+
+B)Do excercise 1.2 from the textbook.
+
+(a)
+```{r}
+s = c(rep(0,100), 10*exp(-(1:100)/20)*cos(2*pi*1:100/4))
+x = s + rnorm(200)
+plot.ts(x)
+```
+(b)
+```{r}
+s = c(rep(0,100), 10*exp(-(1:100)/200)*cos(2*pi*1:100/4))
+x = s + rnorm(200)
+plot.ts(x)
+```
+(c)Compare the general appearance of the series (a) and (b) with the earthquake
+series and the explosion series shown in Figure 1.7. In addition, plot (or sketch)
+and compare the signal modulators (a) exp{−t/20} and (b) exp{−t/200}, for
+t = 1, 2, . . ., 100.
+
+Figure A shares a similar trend with the explosion series, showing small variance until one large spike in variance followed by decreasing variance. Figure B is similar to the earthquake series where the variance is constant and relatively small until there is a large spike in variance which doesn't appear to immediately begin decreasing.
+
+```{r}
+lineA <- exp(-(1:100)/20)
+lineB <- exp(-(1:100)/200)
+plot(lineA, type = "l")
+plot(lineB, type = "l")
+```
+
+The time series for part A decays much faster than the time series from part B.

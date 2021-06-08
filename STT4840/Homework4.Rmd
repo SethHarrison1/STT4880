@@ -1,0 +1,126 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+Author: Seth Harrison
+---
+#Seth Harrison{-}
+
+Download the file MarketShare.csv then write an R Notebook document that will contain the R codes and answers to the following problems. 
+
+```{r}
+dat <- read.csv("MarketShare.csv")
+```
+
+1. Fit a linear regression model that can be used to predict CustomerSatisfaction based on MarketShare.  Interpret the estimate of the slope and intercept of the model.
+
+```{r}
+modCS <- lm(CustomerSatisfaction ~ MarketShare, dat)
+summary(modCS)
+```
+
+* The model has an intercept of 8.39331, meaning when the value of market share is 0, customer satisfaction is at a level of 8.39331. The  slope of the model is -0.17291, meaning that for each increase in the value of the market share by 1, the customer satisfaction will decrease by -0.17291.
+
+2. Is MarketShare a statistically significant predictor of CustomerSatisfaction?  Justify by citing an appropriate statistic from the regression summary.
+
+* The value of the coefficient of determination, R-Squared, is .8079 meaning that 80.79% of our customer satisfaction variance can be explained using this model. This is a statistically significant model and would be an appropriate model to predict customer satisfaction based on market share.
+
+3. Plot the residuals after fitting the model in #1.  Do the residuals appear to be white noise?  Verify with an ACF plot.
+
+```{r}
+plot.ts(modCS$residuals)
+acf(modCS$residuals)
+```
+
+* Based on the plot of the residuals and the ACF plot, we are led to believe that the residuals follow a white noise distribution.
+
+4. What can we conclude if the residual is a white noise?
+* We can conlude that the model fits the data well.
+
+
+
+5. Fit a linear regression model that can be used to predict CustomerSatisfaction at time t based on MarketShare at time t-1.  Which is a better predictor of CustomerSatisfaction at time t, is it MarketShare at time t or the lag 1 Marketshare?  Explain.
+
+```{r}
+modCSLag <- lm(dat$CustomerSatisfaction[2:15] ~ dat$MarketShare[1:14])
+summary(modCSLag)
+summary(modCS)
+```
+* The model predicting customer satisfaction using lag 1 market share is better because it has a R-Squared value of .8677 and an adjusted R-Squared value of .8567, while the model without lag has an R-Squared value of .8079 and adjusted R-Squared value of .7931.
+
+6. Do Problem 2.1 from the textbook.
+
+2.1 A Structural Model For the Johnson & Johnson data, say yt
+, shown in Figure 1.1,
+let $x_t = log(y_t)$. In this problem, we are going to fit a special type of structural model,
+$x_t = T_t + S_t + N_t$ where $T_t$
+is a trend component, $S_t$
+is a seasonal component, and $N_t$
+is noise. In our case, time t is in quarters (1960.00, 1960.25, . . . ) so one unit of time
+is a year.
+
+(a) Fit the regression model
+\begin{equation}
+x_t = \underbrace{β_t}_\text{trend} +\underbrace{α_1 Q_1(t) + α_2 Q_2(t) + α_3 Q_3(t) + α_4 Q_4(t)}_\text{seasonal} + \underbrace{wt|{z}noise}_\text{noise}
+\end{equation}
+where $Q_i(t) = 1$ if time t corresponds to quarter i = 1, 2, 3, 4, and zero otherwise.
+The $Q_i(t)$’s are called indicator variables. We will assume for now that wt
+is a Gaussian white noise sequence. Hint: Detailed code is given in Code R.4, the last
+example of Section R.4.
+
+```{r}
+library(astsa) # SEE THE FOOTNOTE
+plot(jj, type="o", ylab="Quarterly Earnings per Share")
+trend = time(jj) - 1970 # helps to 'center' time
+Q = factor(cycle(jj) ) # make (Q)uarter factors
+reg = lm(log(jj)~0 + trend + Q, na.action=NULL) # no intercept
+head(model.matrix(reg)) # view the model design matrix
+summary(reg)
+```
+
+
+(b) If the model is correct, what is the estimated average annual increase in the logged
+earnings per share?
+
+```{r}
+reg$coefficients
+```
+
+* The average annual increase in earnings per share is .1671722.
+
+(c) If the model is correct, does the average logged earnings rate increase or decrease
+from the third quarter to the fourth quarter? And, by what percentage does it
+increase or decrease?
+
+```{r}
+abs(reg$coefficients[4] -reg$coefficients[5])/ sum(reg$coefficients[4])
+```
+
+* The average logged earnings rate decreases by 23.34% between Q3 and Q4.
+
+(d) What happens if you include an intercept term in the model in (a)? Explain why
+there was a problem.
+
+```{r}
+trend = time(jj) - 1970 # helps to 'center' time
+Q = factor(cycle(jj) ) # make (Q)uarter factors
+regWithInt = lm(log(jj) ~ trend + Q, na.action=NULL) # no intercept
+head(model.matrix(regWithInt)) # view the model design matrix
+summary(regWithInt)
+```
+
+* When we include an intercept in the data, we no longer have Q1 as a predictor and we have lower R-Squared values.
+
+(e) Graph the data, $x_t$, and superimpose the fitted values, say $x^t$, on the graph. Examine the residuals, $x_t − x^{t}$, and state your conclusions. Does it appear that the model fits the data well (do the residuals look white)?
+
+```{r}
+par(mfrow=c(1,2))
+plot(log(jj), main="data and fitted value")
+lines(fitted(reg), col="blue")
+plot(log(jj)-fitted(reg), main="residuals")
+```
+
+* It would appear that the residuals are approximately white and that the model fits the data well.(wrong)
+
+

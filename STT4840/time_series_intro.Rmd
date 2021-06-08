@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+(1.1)
+White noise
+```{r}
+t <- 1:365
+x <- rexp(365, 1)
+mod <- lm(x~t)
+r <- mod$residuals
+rt <- ts(r)
+plot(x)
+xt <- ts(x)
+plot.ts(xt)
+dt <- diff(x, 3)
+plot.ts(dt)
+plot.ts(rt)
+w = rnorm(50,0,1) # 500 N(0,1) variates
+plot.ts(w, main="white noise")
+acf(w, lag.max = 20)
+```
+
+(1.2)
+Autoregression
+```{r}
+w = rnorm(550,0,1) # 50 extra to avoid startup problems
+x = filter(w, filter=c(1,-.9), method="recursive")[-(1:50)] # remove first 50
+plot.ts(x, main="autoregression") #plot of autoregression
+plot(x) #plot of autoregression as points
+```
+
+Moving Average
+```{r}
+w = rnorm(500,0,1) # 500 N(0,1) variates
+v = filter(w, sides = 2, filter=rep(1/3,3)) # moving average
+par(mfrow=c(2,1)) #only allows two plots to be shown at a time
+plot.ts(w, main="white noise") # original white noise
+plot.ts(v, ylim=c(-3,3), main="moving average") # moving average plot
+```
+
+Random Walk with Drift
+```{r}
+set.seed(154) # so you can reproduce the results
+w = rnorm(200); x = cumsum(w) # two commands in one line
+wd = w +.2; xd = cumsum(wd) # .2 adds the drift
+plot.ts(xd, ylim=c(-5,55), main="random walk", ylab='') #random walk plotted alone with drift
+lines(x, col=4); abline(h=0, col=4, lty=2); abline(a=0, b=.2, lty=2) #plot of random walk with and without drift
+```
+
+Trigonometric Time Series Models
+```{r}
+cs = 2*cos(2*pi*1:500/50 + .6*pi); w = rnorm(500,0,1)
+par(mfrow=c(3,1), mar=c(3,2,2,1), cex.main=1.5)
+plot.ts(cs, main=expression(2*cos(2*pi*t/50+.6*pi)))
+plot.ts(cs+w, main=expression(2*cos(2*pi*t/50+.6*pi) + N(0,1))) #signal to noise ratio increasing
+plot.ts(cs+5*w, main=expression(2*cos(2*pi*t/50+.6*pi) + N(0,25)))
+```
+(1.4) 
+```{r}
+x1 <- rnorm(365, 0, 1)
+xt1 <- ts(x1)
+plot.ts(xt1)
+x2 <- rnorm(365, 0, 1)
+xt2 <- ts(x2)
+plot.ts(xt2)
+x3 <- rnorm(365, 0, 1)
+xt3 <- ts(x3)
+plot.ts(xt3)
+```
+(1.5) Estimation of Correlation
+
+```{r}
+dat <- read.csv("MarketShare.csv")
+attach(dat)
+z <- AdExpense
+x <- rnorm(100)
+y <- vector()
+z <- vector()
+for (i in 2:100) {
+  y[i] <- x[i] - .8 * x[i - 1]
+  z[i - 1] <- y[i]
+}
+plot.ts(z)
+mean(z)
+var(z)
+acf(z)
+plot.ts(dat$MarketShare)
+acf(dat$MarketShare, 20)
+lm(n)
+```
+
+(2.0) Time series regression and exploratory data analysis
+
+Model 5 is the best model of 2 variables(Adjusted R-SQ .9086), model 7 is the best model of 3 variables(Adjusted R-SQ .9005)
+
+```{r}
+model <- lm(MarketShare ~ AdExpense + CustomerSatisfaction)
+summary(model)
+n <- length(MarketShare)
+t <- 1:n
+model2 <- lm(MarketShare ~ t)
+summary(model2)
+sum((MarketShare - mean(MarketShare))*(t - mean(t))) / sum((t - mean(t))^2)
+mean(MarketShare) - 1.1571 * mean(t)
+model3 <- lm(MarketShare ~ AdExpense)
+summary(model3)
+model4 <- lm(MarketShare ~ CustomerSatisfaction)
+summary(model4)
+model5 <- lm(MarketShare ~ CustomerSatisfaction + t)
+summary(model5)
+model6 <- lm(MarketShare ~ AdExpense + t)
+summary(model6)
+model7 <- lm(MarketShare ~ AdExpense + CustomerSatisfaction + t)
+summary(model7)
+1-pf(91.68, 1, 13) # How you calculate the p value of model 3
+-26.6752 + 1.6657*(36) + 3.4857*(2)
+(.6 * 21) - (.4 * 21)
+(.6 * 19) - (.4 * 19)
+(.6 * 24) - (.4 * 24)
+```
+
+```{r}
+t <- 1:120
+u <- rnorm(t, 0, 1)
+v <- rnorm(t, 0, sqrt(2))
+z <- (0.05 * t) + (u * v)
+plot.ts(z)
+mean(z)
+acf(z)
+library(forecast)
+((27*7 + 3) / 7) + (8*(4/7))
+```
+
+
+```{r}
+acf(diff(MarketShare))
+pacf(diff(MarketShare))
+arima(diff(MarketShare), c(0,0,1))
+arima(diff(MarketShare), c(0,0,2))
+arima(diff(MarketShare), c(0,0,3))
+arima(diff(MarketShare), c(0,0,4))
+predict(arima(diff(MarketShare), c(0,0,3)), n.ahead = 1)
+pl <- predict(arima(diff(MarketShare), c(0,0,3)), n.ahead = 1)[1]
+MarketShare[15] + pl$pred
+arima(diff(MarketShare), c(0,0,2))
+MarketShare[1];MarketShare[8];MarketShare[15]
+
+```
+
+
+
+
+
+
+

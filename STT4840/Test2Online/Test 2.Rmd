@@ -1,0 +1,153 @@
+---
+title: "R Notebook"
+author: "Seth Harrison"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+heart <- read.csv("../HeartRate.csv")
+electric <- read.csv("../ElectricityPrice.csv")
+```
+
+
+A.	Log-in to AsULearn and import the file HeartRate.csv located at the Data Sets folder to R.  This file contains heart rate data for 130 minutes.   
+
+1.	Based on the sample ACF plot and the sample PACF plot of the heart rate data $Y_t$, is an MA(q) model or an AR(p) model more appropriate for $Y_t$?  Explain.    What is the most likely value of either p or q? Explain.
+
+```{r}
+acf(heart, 50)
+pacf(heart, 50)
+```
+
+An AR(p) model is more likely to be appropriate for $Y_t$ because the ACF appears to be sinusoidal and the PACF appears to cut off. I believe an AR(1) model would be the more appropriate for $Y_t$ because it has it's last significant value at lag 1 in the ACF plot.
+
+2.	Fit an AR(1) and MA(1) models to the heart rate data.  Based on the AIC and the log likelihood, which model fits the data better?  Explain.
+
+```{r}
+modelAR1heart <- arima(heart,c(1,0,0))
+modelMA1heart <- arima(heart,c(0,0,1))
+modelAR1heart
+modelMA1heart
+```
+
+The AIC and log-likelihood values for the MA(1) and AR(1) models are very close though the MA(1) model has a slightly higher AIC and slightly lower log-likelihood so I would likely select this model for the data.
+
+3.	Test at the 5% level of significance whether the residuals of the better model in part 2 are white noise using the Ljung-Box-Pierce Test where H = 10.  State the null and alternative hypotheses, the value of the test statistic, the p-value and the conclusion of the test.  (Hint: Use the Box.test() function in R to implement this test)
+
+```{r}
+Box.test(modelMA1heart$residuals, type = "Ljung-Box", lag = 10)
+```
+
+* Our null hypothesis is that the model does not show a lack of fit at H = 10 and residuals are white noise.
+* Our alternative hypothesis is that the model does show a lack of fit at H = 10 and the residuals are not white noise.
+* Our test Statitic X-squared comes out to 7.9591, and we achieve a final p-value of .6328.
+* This p-value fails to reject our null hypothesis that the model does not show a lack of fit and leads us to believe that the model is adequately fit for the data.
+
+4.	Is your answer in part 3 supported by the ACF plot of the residuals? Explain.
+
+```{r}
+acf(modelMA1heart$residuals, 50)
+```
+
+My answer is supported, as the residuals appear to be approximately white noise and not dependent on any lag.
+
+5.	Using the better model identified in part 2, predict the heart rate for the 131st minute.
+
+```{r}
+predict(modelMA1heart, n.ahead = 1)
+```
+
+The predicted heart rate value for the 131st minute would be 74.21678.
+
+
+B.	Import the data stored in AsULearn under the filename ElectricityPrice.csv.  
+
+1.	Remove the overall increasing trend in this data using 1st order differencing.  Attach and describe the time series plot of de-trended data.  Is this stationary?  Does it exhibit seasonality? If so, what is the seasonal period?
+
+```{r}
+plot(electric)
+electricdiff <- diff(electric$Price, lag = 1)
+electricdiff <- ts(electricdiff)
+plot.ts(electricdiff)
+```
+
+The time series plot of the de-trended differenced data appears to be stationary, with a constant mean around 0 and variance which appears constant.It appears to have a seasonality period of about 4, which would be a period of every 4 quarters(yearly).
+
+2.	Using a seasonal regression model with dummy variables, obtain the seasonally-adjusted de-trended electricity price data.  (Hint: the seasonally-adjusted de-trended data are the residuals after fitting the regression model with the dummy variables Q1 which indicates if it’s in the 1st quarter, Q2 if in the 2nd quarter and Q3 if in the 3rd quarter and the commands Q1<-rep(c(1,0,0,0),13) and Q1[53]<-1 will create the dummy variable Q1 for the first quarter indicator, Q2<-rep(c(0,1,0,0),13) and Q2[53]<-0 will create the dummy variable Q2 for the 2nd quarter indicator and Q3<-rep(c(0,0,1,0),13) and Q3[53]<-0 will create the dummy variable Q3 for the 3rd quarter indicator)
+
+```{r}
+Q1<-rep(c(1,0,0,0),13)
+Q1[53]<-1
+Q2<-rep(c(0,1,0,0),13)
+Q2[53]<-0
+Q3<-rep(c(0,0,1,0),13)
+Q3[53]<-0
+
+mod1 <- lm(diff(electric$Price)~ time(electricdiff) + Q1 + Q2 + Q3)
+plot(mod1$residuals, type = "l")
+electricSeasonal <- mod1$residuals
+```
+
+3.	Obtain the best ARIMA model you can fit for the seasonally-adjusted data in part 2.   Explain how you arrived at your final model.
+
+```{r}
+acf(electricSeasonal, 50)
+pacf(electricSeasonal, 50)
+modelAR1electricity <- arima(electricSeasonal,c(1,0,0))
+modelMA1electricity <- arima(electricSeasonal,c(0,0,1))
+modelAR2electricity <- arima(electricSeasonal,c(2,0,0))
+modelMA2electricity <- arima(electricSeasonal,c(0,0,2))
+modelARMA11electricity <- arima(electricSeasonal,c(1,0,1))
+modelARMA22electricity <- arima(electricSeasonal,c(2,0,2))
+modelARMA12electricity <- arima(electricSeasonal,c(1,0,2))
+modelARMA21electricity <- arima(electricSeasonal,c(2,0,1))
+
+modelAR1electricity
+modelAR2electricity
+modelMA1electricity
+modelMA2electricity
+modelARMA11electricity
+modelARMA22electricity
+modelARMA12electricity
+modelARMA21electricity
+```
+
+The best model for the data is an AR(1), because the ACF is sinusoidal and the AIC is the furthest from 0 of the 8 possible ARIMA models.
+
+
+4.	What is the forecast of the electricity price for the 3rd quarter of 2014?  (Hint: the forecast for 3rd quarter of 2014 from the ARIMA model in part 3 is the estimate of the residual for the 3rd quarter of 2014 for the seasonal regression model so adding this residual to the seasonal regression model’s fitted value for 3rd quarter of 2014 will give an estimate of the de-trended electricity price for 3rd quarter of 2014.  Finally, the forecast of the electricity price for the 3rd quarter of 2014 is the sum of the de-trended electricity price for 3rd quarter of 2014 and the original electricity price for the 2nd quarter of 2014.)
+
+```{r}
+predict(modelAR1electricity, n.ahead = 1)
+mod1
+
+-0.03845778 + -0.6744861 + electric$Price[54]
+```
+
+The forecasted value of electricity in the third quarter of 2014 is $9.63.
+
+
+5.	Obtain a smoother version of the original electricity price data using two smoothing methods.  What are the forecasts for the 3rd quarter of 2014 using these two methods? (Hint: the forecast for any future time period is the smoothed value at the 2nd quarter of 2014)
+
+```{r}
+plot.ts(electric$Price)
+lines(ksmooth(time(electric$Price),electric$Price,"normal",bandwidth=5),col="red")
+lines(smooth.spline(time(electric$Price),electric$Price,spar=.5),col="purple")
+mod2 <- loess(electric$Price ~ time(electric$Price))
+predict(mod2)[54]
+mod3 <- smooth.spline(electric$Price)
+predict(mod3)[2]
+```
+
+When we use a loess smoothing method, our predicted 3rd quarter 2014 price is \$10.12, and when we use a smoothing spline we get \$10.23.
+
+
+
+
+
+
+
+
+

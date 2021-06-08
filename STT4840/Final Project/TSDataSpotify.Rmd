@@ -1,0 +1,42 @@
+---
+title: "Spotify TSData"
+author: "Seth Harrison"
+date: '`r format(Sys.time(), "%B %d, %Y")`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(knitr)
+library(DT)
+library(xlsx)
+```
+
+```{r}
+sheet1 <- read.csv("./sheet1.csv")
+sheet2 <- read.csv("./sheet2.csv")
+sheet3 <- read.csv("./sheet3.csv")
+sheet4 <- read.csv("./sheet4.csv")
+```
+
+```{r}
+halfSheet1 <- full_join(sheet1, sheet2)
+halfSheet2 <- full_join(sheet3, sheet4)
+fullSheet <- full_join(halfSheet1, halfSheet2)
+datatable(fullSheet)
+head(fullSheet)
+```
+
+```{r}
+file = "fullSheet.xlsx"
+write.xlsx2(fullSheet, file, sheetName="fullSheet",
+  col.names=TRUE, row.names=TRUE, append=FALSE)
+```
+

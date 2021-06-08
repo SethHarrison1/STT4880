@@ -1,0 +1,83 @@
+---
+title: "STT 4840 Homework 2"
+author: "Seth Harrison"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+A. Consider the model $y_t=10+w_t + .8w_{t-1}-.3w_{t-2}$ where $w_t$ is a white noise with constant variance $\sigma_w^2$.
+
+   1. Find the mean of $y_t$.  <br />
+   The mean of $y_t$ = E[$y_t$] = E[10] + E[$w_t$] + E[$.8w_{t-1}$] - E[$.3w_{t-2}$]  <br />
+   Assuming that {$y-t$} is stationary, then E[$y_t$] = E[10] + E[$w_t$] + .8E[$w_t$] - .3E[$w_t$]  <br />
+   Then E[$y_t$] = 10 + 0 + .8(0) - .3(0) = 10 = $\mu_t$
+   2. Find the variance of $y_t$.  <br /> 
+   Var[$y_t$] = var($w_t$) + .8 var($w_t$) - .3 var($w_t$)  <br />
+   Var[$y_t$] = 1.5$\sigma_w^2$
+   
+   3. Find the autocovariance function of $y_t$, i.e., find $\gamma(s,t)$.  <br />
+   $\gamma(s,t)$ = E[$(y_t - \mu_{y_s})$$(y_s - \mu_{y_t})$]  <br />
+   $\gamma(s,t)$ = E[$(y_t - 10)(y_s - 10)$]  <br />
+   $\gamma(s,t)$ = E[$y_t y_s + 10y_t + 10y_s + 100$]  <br />
+   If $t \leq s$ then there exists some $h$ such that $s = t + h$  <br />
+   $\gamma(t + h,t)$ = E[$(y_t - 10)(y_{t+h} - 10)$]  <br />
+   $\gamma(t + h,t)$ = E[$(w_t + .8w_{t-1} - .3w_{t-2})(w_{t+h} + .8w_{t+h-1} - .3w_{t+h-2})$] <br />
+   Because when $t = s$ then E[$w_t w_s$] = $\sigma_w^2$ and when $t \neq s$ E[$w_t w_s$] = 0 we get: <br />
+   $\gamma(s,t)$ = E[(10 - 10)(10 - 10)]  <br />
+   $\gamma(s,t)$ = 0 
+   4. Find the autocorrelation function of $y_t$, i.e, find $\rho(s,t)$.  <br />
+   $\rho(s,t)$ = $\frac{\gamma(s,t)}{\sqrt{\sigma_w^2 * \sigma_w^2}}$ = 0
+   5. Is ${y_t}$ weakly stationary? Explain.  <br />
+   Yes ${y_t}$ is a weakly stationary because the mean is constant and does not depend on time, and the function does not change with time $y_{t-s}$ 
+
+B. Do Problems 1.4 and 1.5 from the textbook.
+
+1.4)  <br />
+Show that the autocovariance function can be written as  <br />
+$\gamma(s,t)$ = E[$(x_t - \mu_t)$$(x_s - \mu_s)$] = E[$x_s x_t$] - $\mu_s \mu_t$, where E[$x_t$] = $\mu_t$. <br />
+----------------------------- <br />
+$\gamma(s,t)$ = E[$(x_t - \mu_t)$$(x_s - \mu_s)$]  <br />
+$\gamma(s,t)$ = E[$x_t x_s - x_t \mu_s - x_s \mu_t + \mu_t \mu_s$]  <br />
+$\gamma(s,t)$ = E[$x_t x_s$] - E[$x_t \mu_s$] - E[$x_s \mu_t$] + E[$\mu_t \mu_s$]  <br />
+$\gamma(s,t)$ = E[$x_t x_s$] - E[$\mu_t \mu_s$] - E[$\mu_s \mu_t$] + E[$\mu_t \mu_s$]  <br />
+$\gamma(s,t)$ = E[$x_t x_s$] - 2E[$\mu_t \mu_s$] + E[$\mu_t \mu_s$]  <br />
+$\gamma(s,t)$ = E[$x_t x_s$] - E[$\mu_t \mu_s$]  <br />
+$\gamma(s,t)$ = E[$x_t x_s$] - $\mu_t \mu_s$  <br />
+
+1.5)  <br />
+For the two series, $x_t$, in Problem 1.2 (a) and (b):  <br />
+
+a) Compute and plot the mean functions $\mu_x(t)$ for $t$ = 1,...,200.  <br />
+
+```{r}
+s = c(rep(0,100), 10*exp(-(1:100)/20)*cos(2*pi*1:100/4))
+x = s + rnorm(200)
+plot.ts(x)
+```
+
+$\mu_x(t)$ = E[0] + E[$10e^{\frac{t-100}{20}}cos(\frac{2t\pi}{4})$]  <br /> 
+because the value of $cos(\frac{2t\pi}{4})$ over the range of 101 to 200 will have an expected value of 0,  <br /> E[$10e^{\frac{t-100}{20}}cos(\frac{2t\pi}{4})$] = 0  <br />
+
+```{r}
+s = c(rep(0,100), 10*exp(-(1:100)/200)*cos(2*pi*1:100/4))
+y = s + rnorm(200)
+plot.ts(y)
+```
+
+$\mu_x(t)$ = E[0] + E[$10e^{\frac{t-100}{200}}cos(\frac{2t\pi}{4})$]  <br /> 
+because the value of $cos(\frac{2t\pi}{4})$ has an expected value of 0,  <br /> E[$10e^{\frac{t-100}{200}}cos(\frac{2t\pi}{4})$] = 0  <br />
+
+
+b) Calculate the autocovariance functions, $\gamma_x(s,t)$, for $s,t$ = 1,...,200.  <br />
+
+$\gamma(s,t)$ = E[$(x_t - \mu_t)$$(x_s - \mu_s)$]  <br />
+$\gamma(s,t)$ = E[$(x_t - 0)$$(x_t+h - 0)$]  <br />
+$\gamma(s,t)$ = E[$(x_t)$$(x_s)$]  <br /> 
+$\gamma(s,t)$ = E[($10e^{\frac{t-100}{20}}cos(\frac{2t\pi}{4})$)($10e^{\frac{s-100}{20}}cos(\frac{2s\pi}{4})$)]  <br />
+$\gamma(t + h,t)$  = E[($10e^{\frac{t-100}{20}}cos(\frac{2t\pi}{4})$)($10e^{\frac{t + h -100}{20}}cos(\frac{2(t+h)\pi}{4})$)]  <br />
+$\gamma(s,t)$ = $\sigma_w^2$ 10($\sum_{101}^{200}10e^{\frac{s-t-100}{20}}cos(\frac{2(s-t)\pi}{4})$)  <br />
+
+therefore for the second function $10e^{\frac{t-100}{200}}cos(\frac{2t\pi}{4})$,  <br />
+
+$\gamma(s,t)$ = $\sigma_w^2$ 10($\sum_{101}^{200}10e^{\frac{s-t-100}{200}}cos(\frac{2(s-t)\pi}{4})$)  <br />
